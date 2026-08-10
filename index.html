@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CineStream</title>
+  <title>CineStream - Telegram Embed</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -38,7 +38,7 @@
         <input 
           type="text" 
           id="searchInput" 
-          placeholder="Buscar filme..." 
+          placeholder="Buscar filme no TMDB..." 
           class="w-full bg-cyber-bg border border-cyber-border rounded-lg px-4 py-2 text-sm text-white focus:outline-none border-cyber-accent/50 neon-border transition"
         />
       </div>
@@ -49,24 +49,23 @@
     <!-- Section Player -->
     <section class="space-y-3">
       <h2 id="playerTitle" class="text-xl font-semibold text-cyber-accent flex items-center gap-2">
-        <span>▶</span> Assistindo: Shrek 2
+        <span>▶</span> Exibindo: Shrek 2 (via Telegram)
       </h2>
-      <div class="relative w-full aspect-video bg-cyber-card rounded-xl overflow-hidden border border-cyber-border shadow-2xl">
-        <!-- Player Iframe limpo apontando inicialmente para Shrek 2 (TMDB ID: 10192) -->
+      <div class="relative w-full min-h-[500px] bg-cyber-card rounded-xl overflow-hidden border border-cyber-border shadow-2xl flex justify-center items-center">
+        <!-- Frame apontando para o embed nativo do post do Telegram -->
         <iframe 
           id="videoPlayer" 
-          src="https://embed.su/embed/movie/10192" 
-          class="w-full h-full"
+          src="https://t.me/zzzzzkth/2?embed=1" 
+          class="w-full h-[600px]"
           allowfullscreen 
           scrolling="no"
-          referrerpolicy="origin"
         ></iframe>
       </div>
     </section>
 
     <!-- Grid de Busca -->
     <section>
-      <h3 id="resultsHeading" class="text-lg font-medium text-gray-400 mb-4">Filmes Relacionados / Busca</h3>
+      <h3 id="resultsHeading" class="text-lg font-medium text-gray-400 mb-4">Filmes Populares (TMDB)</h3>
       <div id="resultsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <!-- Renderizado via JS -->
       </div>
