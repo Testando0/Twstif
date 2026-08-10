@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CineStream - Player Limpo</title>
+  <title>CineStream - Player</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -45,26 +45,21 @@
   </header>
 
   <main class="flex-1 max-w-7xl w-full mx-auto p-4 space-y-8">
-    <!-- Section Player Limpo -->
+    <!-- Seção do Player com o embed do Telegram mascarado -->
     <section class="space-y-3">
       <h2 id="playerTitle" class="text-xl font-semibold text-cyber-accent flex items-center gap-2">
         <span>▶</span> Assistindo: Shrek 2
       </h2>
       
-      <!-- Container do vídeo sem nenhuma marca ou UI do Telegram -->
-      <div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden border border-cyber-border shadow-2xl flex items-center justify-center">
-        <video 
+      <!-- Container com overflowhidden para esconder as bordas/cabeçalho do Telegram -->
+      <div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden border border-cyber-border shadow-2xl">
+        <iframe 
           id="videoPlayer" 
-          controls 
-          autoplay
-          playsinline
-          class="w-full h-full object-contain"
-          poster="https://image.tmdb.org/t/p/w1280/9Rj12ipB16R3qUChJ3I327B4R0B.jpg"
-        >
-          <!-- URL direta do arquivo MP4 extraído -->
-          <source id="videoSource" src="https://stream.telegram.org/file/zzzzzkth/2/shrek2.mp4" type="video/mp4" />
-          Seu navegador não suporta a exibição deste vídeo.
-        </video>
+          src="https://t.me/zzzzzkth/2?embed=1" 
+          class="w-full h-[150%] -mt-[15%] border-none"
+          allowfullscreen 
+          scrolling="no"
+        ></iframe>
       </div>
     </section>
 
