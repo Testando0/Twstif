@@ -1,9 +1,6 @@
-const TMDB_API_KEY = '8265bd1679663a7ea12ac168da84d2e8'; // Insira sua chave da API do TMDB aqui
+const TMDB_API_KEY = '8265bd1679663a7ea12ac168da84d2e8'; // Insira sua API Key do TMDB
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
-
-// Provedor de embed limpo sem marcas de água
-const EMBED_BASE_URL = 'https://embed.su/embed/movie/';
 
 const searchInput = document.getElementById('searchInput');
 const resultsGrid = document.getElementById('resultsGrid');
@@ -13,14 +10,15 @@ const resultsHeading = document.getElementById('resultsHeading');
 
 let searchTimeout = null;
 
-// Atualiza o player de vídeo com base no ID do TMDB
-function loadMovie(tmdbId, title) {
-  videoPlayer.src = `${EMBED_BASE_URL}${tmdbId}`;
-  playerTitle.innerHTML = `<span>▶</span> Assistindo: ${title}`;
+// Função para atualizar o iframe apontando para o embed do Telegram do filme/post selecionado
+function loadTelegramPost(postPath, title) {
+  // Converte caminhos como "channel/post_id" na URL de embed nativa do Telegram
+  videoPlayer.src = `https://t.me/${postPath}?embed=1`;
+  playerTitle.innerHTML = `<span>▶</span> Exibindo: ${title}`;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// Busca filmes via API do TMDB
+// Busca dados na API do TMDB
 async function fetchMovies(query = '') {
   const endpoint = query 
     ? `${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=pt-BR`
@@ -31,11 +29,11 @@ async function fetchMovies(query = '') {
     const data = await res.json();
     renderMovies(data.results || []);
   } catch (err) {
-    console.error('Erro ao buscar dados do TMDB:', err);
+    console.error('Erro ao buscar filmes no TMDB:', err);
   }
 }
 
-// Renderiza a lista de filmes
+// Renderiza a grade de filmes
 function renderMovies(movies) {
   resultsGrid.innerHTML = '';
 
@@ -65,18 +63,19 @@ function renderMovies(movies) {
       </div>
     `;
 
-    card.addEventListener('click', () => loadMovie(movie.id, movie.title));
+    // Exemplo: ao clicar, carrega o post padrão ou a lógica de mapeamento por post/ID
+    card.addEventListener('click', () => loadTelegramPost('zzzzzkth/2', movie.title));
     resultsGrid.appendChild(card);
   });
 }
 
-// Escuta a busca com debounce
+// Escuta a digitação na busca (com debounce)
 searchInput.addEventListener('input', (e) => {
   clearTimeout(searchTimeout);
   const query = e.target.value.trim();
 
   searchTimeout = setTimeout(() => {
-    resultsHeading.textContent = query ? `Resultados para "${query}"` : 'Filmes Populares';
+    resultsHeading.textContent = query ? `Resultados para "${query}"` : 'Filmes Populares (TMDB)';
     fetchMovies(query);
   }, 400);
 });
