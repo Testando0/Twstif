@@ -5,20 +5,23 @@ const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 const searchInput = document.getElementById('searchInput');
 const resultsGrid = document.getElementById('resultsGrid');
 const videoPlayer = document.getElementById('videoPlayer');
+const videoSource = document.getElementById('videoSource');
 const playerTitle = document.getElementById('playerTitle');
 const resultsHeading = document.getElementById('resultsHeading');
 
 let searchTimeout = null;
 
-// Função para atualizar o iframe apontando para o embed do Telegram do filme/post selecionado
-function loadTelegramPost(postPath, title) {
-  // Converte caminhos como "channel/post_id" na URL de embed nativa do Telegram
-  videoPlayer.src = `https://t.me/${postPath}?embed=1`;
-  playerTitle.innerHTML = `<span>▶</span> Exibindo: ${title}`;
+// Carrega o link direto do arquivo do vídeo no player limpo
+function loadDirectVideo(streamUrl, title) {
+  videoSource.src = streamUrl;
+  videoPlayer.load();
+  videoPlayer.play().catch(() => {}); // Autoplay resiliente
+  
+  playerTitle.innerHTML = `<span>▶</span> Assistindo: ${title}`;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// Busca dados na API do TMDB
+// Busca filmes via TMDB API
 async function fetchMovies(query = '') {
   const endpoint = query 
     ? `${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=pt-BR`
@@ -29,11 +32,11 @@ async function fetchMovies(query = '') {
     const data = await res.json();
     renderMovies(data.results || []);
   } catch (err) {
-    console.error('Erro ao buscar filmes no TMDB:', err);
+    console.error('Erro ao buscar dados do TMDB:', err);
   }
 }
 
-// Renderiza a grade de filmes
+// Renderiza a lista de filmes
 function renderMovies(movies) {
   resultsGrid.innerHTML = '';
 
@@ -63,13 +66,16 @@ function renderMovies(movies) {
       </div>
     `;
 
-    // Exemplo: ao clicar, carrega o post padrão ou a lógica de mapeamento por post/ID
-    card.addEventListener('click', () => loadTelegramPost('zzzzzkth/2', movie.title));
+    // Passa a URL direta do stream limpo sem marcas de Telegram
+    card.addEventListener('click', () => {
+      loadDirectVideo('https://stream.telegram.org/file/zzzzzkth/2/shrek2.mp4', movie.title);
+    });
+    
     resultsGrid.appendChild(card);
   });
 }
 
-// Escuta a digitação na busca (com debounce)
+// Escuta a busca com debounce
 searchInput.addEventListener('input', (e) => {
   clearTimeout(searchTimeout);
   const query = e.target.value.trim();
