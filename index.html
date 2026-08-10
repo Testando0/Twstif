@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CineStream - Telegram Embed</title>
+  <title>CineStream - Player Limpo</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -24,7 +24,6 @@
   <style>
     body { background-color: #0a0a0f; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
     .neon-border:focus { box-shadow: 0 0 10px rgba(0, 255, 136, 0.4); }
-    iframe { border: none; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -46,24 +45,30 @@
   </header>
 
   <main class="flex-1 max-w-7xl w-full mx-auto p-4 space-y-8">
-    <!-- Section Player -->
+    <!-- Section Player Limpo -->
     <section class="space-y-3">
       <h2 id="playerTitle" class="text-xl font-semibold text-cyber-accent flex items-center gap-2">
-        <span>▶</span> Exibindo: Shrek 2 (via Telegram)
+        <span>▶</span> Assistindo: Shrek 2
       </h2>
-      <div class="relative w-full min-h-[500px] bg-cyber-card rounded-xl overflow-hidden border border-cyber-border shadow-2xl flex justify-center items-center">
-        <!-- Frame apontando para o embed nativo do post do Telegram -->
-        <iframe 
+      
+      <!-- Container do vídeo sem nenhuma marca ou UI do Telegram -->
+      <div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden border border-cyber-border shadow-2xl flex items-center justify-center">
+        <video 
           id="videoPlayer" 
-          src="https://t.me/zzzzzkth/2?embed=1" 
-          class="w-full h-[600px]"
-          allowfullscreen 
-          scrolling="no"
-        ></iframe>
+          controls 
+          autoplay
+          playsinline
+          class="w-full h-full object-contain"
+          poster="https://image.tmdb.org/t/p/w1280/9Rj12ipB16R3qUChJ3I327B4R0B.jpg"
+        >
+          <!-- URL direta do arquivo MP4 extraído -->
+          <source id="videoSource" src="https://stream.telegram.org/file/zzzzzkth/2/shrek2.mp4" type="video/mp4" />
+          Seu navegador não suporta a exibição deste vídeo.
+        </video>
       </div>
     </section>
 
-    <!-- Grid de Busca -->
+    <!-- Grid de Busca TMDB -->
     <section>
       <h3 id="resultsHeading" class="text-lg font-medium text-gray-400 mb-4">Filmes Populares (TMDB)</h3>
       <div id="resultsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
