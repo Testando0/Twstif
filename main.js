@@ -22,81 +22,51 @@ let searchTimeout = null;
 let currentSeriesDetails = null;
 
 // ============================================================
-// BLOQUEIO TOTAL DE REDIRECIONAMENTOS E POPUPS
+// BLOQUEIO DE REDIRECIONAMENTOS (SEM QUEBRAR O JS)
 // ============================================================
 const originalWindowOpen = window.open;
-const originalLocationAssign = window.location.assign;
-const originalLocationReplace = window.location.replace;
-
 let blockRedirects = false;
 
-function enableRedirectBlock() {
-  blockRedirects = true;
-  
-  // Bloqueia window.open
-  window.open = function() {
-    if (blockRedirects) {
-      console.log('🚫 Popup bloqueado:', arguments);
-      return null;
-    }
-    return originalWindowOpen.apply(window, arguments);
-  };
-  
-  // Bloqueia window.location.assign
-  window.location.assign = function(url) {
-    if (blockRedirects) {
-      console.log('🚫 Redirecionamento bloqueado:', url);
-      return;
-    }
-    return originalLocationAssign.call(window.location, url);
-  };
-  
-  // Bloqueia window.location.replace
-  window.location.replace = function(url) {
-    if (blockRedirects) {
-      console.log('🚫 Redirecionamento bloqueado:', url);
-      return;
-    }
-    return originalLocationReplace.call(window.location, url);
-  };
-  
-  // Bloqueia mudanças diretas em window.location.href
-  Object.defineProperty(window, 'location', {
-    get: function() {
-      return document.location;
-    },
+// Bloqueia window.open
+window.open = function() {
+  if (blockRedirects) {
+    console.log('🚫 Popup bloqueado:', arguments);
+    return null;
+  }
+  return originalWindowOpen.apply(window, arguments);
+};
+
+// Bloqueia redirecionamentos via location.href (setter)
+let currentHref = window.location.href;
+const locationDescriptor = Object.getOwnPropertyDescriptor(window.location.__proto__, 'href') || 
+                           Object.getOwnPropertyDescriptor(Location.prototype, 'href');
+
+if (locationDescriptor && locationDescriptor.set) {
+  const originalSet = locationDescriptor.set;
+  Object.defineProperty(window.location, 'href', {
+    get: locationDescriptor.get ? locationDescriptor.get.bind(window.location) : function() { return currentHref; },
     set: function(val) {
       if (blockRedirects) {
         console.log('🚫 Redirecionamento bloqueado:', val);
         return;
       }
-      document.location = val;
+      originalSet.call(window.location, val);
     },
-    configurable: false
-  });
-  
-  // Bloqueia beforeunload (tentativa de redirecionamento)
-  window.addEventListener('beforeunload', (e) => {
-    if (blockRedirects) {
-      e.preventDefault();
-      e.returnValue = '';
-      return '';
-    }
+    configurable: true
   });
 }
 
-function disableRedirectBlock() {
-  blockRedirects = false;
-  window.open = originalWindowOpen;
-  window.location.assign = originalLocationAssign;
-  window.location.replace = originalLocationReplace;
-}
-
-// Ativa o bloqueio imediatamente
-enableRedirectBlock();
+// Bloqueia beforeunload
+window.addEventListener('beforeunload', (e) => {
+  if (blockRedirects) {
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+});
 
 // ============================================================
-// PROTEÇÃO CONTRA ANÚNCIO - VERSÃO AGRESSIVA
+// PROTEÇÃO CONTRA ANÚNCIO
 // ============================================================
 let adConsumed = false;
 
@@ -117,10 +87,8 @@ adInterceptor.addEventListener('click', async (e) => {
   
   console.log('🛡️ Primeiro clique consumido - anúncio bloqueado');
   
-  // Remove o overlay imediatamente
   adInterceptor.classList.add('consumed');
   
-  // Recarrega o iframe para pular o anúncio
   const currentSrc = videoPlayer.src;
   if (currentSrc && currentSrc !== 'about:blank') {
     videoPlayer.src = 'about:blank';
@@ -128,17 +96,14 @@ adInterceptor.addEventListener('click', async (e) => {
     videoPlayer.src = currentSrc;
   }
   
-  // Aguarda o player carregar antes de habilitar interação
   setTimeout(() => {
     videoPlayer.classList.add('unlocked');
     
-    // Mantém o bloqueio por mais 5 segundos após o clique
     setTimeout(() => {
       blockRedirects = false;
       console.log('✅ Bloqueio de redirecionamento desativado');
     }, 5000);
     
-    // Tenta forçar autoplay
     try {
       videoPlayer.contentWindow?.postMessage({ event: 'play' }, '*');
     } catch (err) {
@@ -147,7 +112,6 @@ adInterceptor.addEventListener('click', async (e) => {
   }, 500);
 });
 
-// Bloqueia qualquer tentativa de interação direta com o iframe
 videoPlayer.addEventListener('click', (e) => {
   if (!adConsumed) {
     e.preventDefault();
@@ -268,10 +232,16 @@ async function loadCatalog(query = '') {
   
   try {
     const res = await fetch(endpoint);
+    if (!res.ok) {
+      console.error('Erro na API TMDB:', res.status, res.statusText);
+      resultsGrid.innerHTML = `<p class="col-span-full text-red-500">Erro ao buscar dados do TMDB (${res.status}). Verifique a API key.</p>`;
+      return;
+    }
     const data = await res.json();
     renderCatalog(data.results || []);
   } catch (err) {
     console.error('Erro ao buscar no TMDB:', err);
+    resultsGrid.innerHTML = `<p class="col-span-full text-red-500">Erro de conexão com TMDB: ${err.message}</p>`;
   }
 }
 
@@ -340,4 +310,5 @@ searchInput.addEventListener('input', (e) => {
 // ============================================================
 // INICIALIZAÇÃO
 // ============================================================
+console.log('🚀 Iniciando CineStream...');
 loadCatalog();
