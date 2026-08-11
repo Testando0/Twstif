@@ -2,11 +2,9 @@ const TMDB_API_KEY = '8265bd1679663a7ea12ac168da84d2e8';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 
-// Player mgeb.top
 const PLAYER_MOVIE = (tmdbId) => `https://mgeb.top/embed/${tmdbId}`;
 const PLAYER_SERIES = (tmdbId, season, episode) => `https://mgeb.top/embed/${tmdbId}/${season}/${episode}`;
 
-// DOM Elements
 const searchInput = document.getElementById('searchInput');
 const resultsGrid = document.getElementById('resultsGrid');
 const videoPlayer = document.getElementById('videoPlayer');
@@ -19,42 +17,64 @@ const seasonsSlider = document.getElementById('seasonsSlider');
 const episodesGrid = document.getElementById('episodesGrid');
 const adInterceptor = document.getElementById('ad-interceptor');
 
-let currentTab = 'movies'; // 'movies' or 'series'
+let currentTab = 'movies';
 let searchTimeout = null;
-let currentSeriesDetails = null; // guarda info da série selecionada
+let currentSeriesDetails = null;
 
 // ============================================================
-// PROTEÇÃO CONTRA ANÚNCIO DO PRIMEIRO TOQUE + AUTOPLAY
+// PROTEÇÃO CONTRA ANÚNCIO - VERSÃO CORRIGIDA
 // ============================================================
-// O player mgeb.top mostra um anúncio no primeiro clique.
-// O overlay captura esse primeiro clique, "engole" o anúncio,
-// depois faz o iframe recarregar com autoplay forçado.
 let adConsumed = false;
 
 function setupAdProtection() {
   adInterceptor.classList.remove('consumed');
+  videoPlayer.classList.remove('unlocked');
   adConsumed = false;
 }
 
-adInterceptor.addEventListener('click', async () => {
+adInterceptor.addEventListener('click', async (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  
   if (adConsumed) return;
   adConsumed = true;
+  
+  // Remove o overlay imediatamente
   adInterceptor.classList.add('consumed');
   
-  // Recarrega o iframe para pular o anúncio e tocar o vídeo
+  // Aguarda um pequeno delay para garantir que o anúncio seja consumido
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
+  // Recarrega o iframe (isso pula o anúncio)
   const currentSrc = videoPlayer.src;
   if (currentSrc && currentSrc !== 'about:blank') {
-    // Força reload do player - a 2ª tentativa já toca sem anúncio
+    videoPlayer.src = '';
+    await new Promise(resolve => setTimeout(resolve, 50));
     videoPlayer.src = currentSrc;
-    // Tenta forçar autoplay com interação do usuário (clique)
-    setTimeout(() => {
+  }
+  
+  // Habilita interação com o iframe após o reload
+  setTimeout(() => {
+    videoPlayer.classList.add('unlocked');
+    // Tenta forçar autoplay
+    try {
       videoPlayer.contentWindow?.postMessage({ event: 'play' }, '*');
-    }, 500);
+    } catch (err) {
+      console.log('Autoplay postMessage failed:', err);
+    }
+  }, 300);
+});
+
+// Bloqueia qualquer tentativa de interação direta com o iframe
+videoPlayer.addEventListener('click', (e) => {
+  if (!adConsumed) {
+    e.preventDefault();
+    e.stopPropagation();
   }
 });
 
 // ============================================================
-// NAVEGAÇÃO ENTRE TABS (FILMES / SÉRIES)
+// NAVEGAÇÃO ENTRE TABS
 // ============================================================
 tabMovies.addEventListener('click', () => switchTab('movies'));
 tabSeries.addEventListener('click', () => switchTab('series'));
@@ -91,7 +111,6 @@ async function loadSeriesDetails(seriesId) {
     currentSeriesDetails = data;
     seriesControls.classList.remove('hidden');
     
-    // Renderiza slider de temporadas
     seasonsSlider.innerHTML = '';
     const seasons = data.seasons.filter(s => s.season_number > 0);
     
@@ -103,7 +122,6 @@ async function loadSeriesDetails(seriesId) {
       seasonsSlider.appendChild(btn);
     });
     
-    // Carrega episódios da primeira temporada automaticamente
     if (seasons.length > 0) {
       seasonsSlider.firstChild.classList.add('border-cyber-accent', 'text-cyber-accent');
       await loadEpisodes(seasons[0].season_number);
@@ -116,7 +134,6 @@ async function loadSeriesDetails(seriesId) {
 async function loadEpisodes(seasonNumber) {
   if (!currentSeriesDetails) return;
   
-  // Marca temporada ativa
   Array.from(seasonsSlider.children).forEach(btn => {
     btn.classList.remove('border-cyber-accent', 'text-cyber-accent');
     if (btn.textContent.includes(`Temporada ${seasonNumber}`)) {
@@ -137,7 +154,6 @@ async function loadEpisodes(seasonNumber) {
       btn.innerHTML = `<div class="font-bold">Ep ${ep.episode_number}</div><div class="truncate text-[10px] mt-1" title="${ep.name || ''}">${ep.name || ''}</div>`;
       
       btn.addEventListener('click', () => {
-        // Marca o episódio ativo
         document.querySelectorAll('.episode-card').forEach(c => c.classList.remove('active-ep'));
         btn.classList.add('active-ep');
         
@@ -153,7 +169,7 @@ async function loadEpisodes(seasonNumber) {
 }
 
 // ============================================================
-// CATÁLOGO TMDB (FILMES + SÉRIES)
+// CATÁLOGO TMDB
 // ============================================================
 async function loadCatalog(query = '') {
   let endpoint;
@@ -214,7 +230,6 @@ function renderCatalog(items) {
         const url = PLAYER_MOVIE(tmdbId);
         loadPlayer(url, title);
       } else {
-        // Para séries, abre o player no S1E1 e carrega o seletor
         const url = PLAYER_SERIES(tmdbId, 1, 1);
         loadPlayer(url, `${title} - S1E1`, true);
         loadSeriesDetails(tmdbId);
@@ -226,7 +241,7 @@ function renderCatalog(items) {
 }
 
 // ============================================================
-// BUSCA COM DEBOUNCE
+// BUSCA
 // ============================================================
 searchInput.addEventListener('input', (e) => {
   clearTimeout(searchTimeout);
