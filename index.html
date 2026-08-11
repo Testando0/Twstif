@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -25,7 +26,6 @@
     body { background-color: #0a0a0f; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
     .neon-border:focus { box-shadow: 0 0 10px rgba(0, 255, 136, 0.4); }
     
-    /* Overlay de proteção - ABSORVE o primeiro clique */
     #ad-interceptor {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -34,23 +34,15 @@
       cursor: pointer;
       pointer-events: auto;
     }
-    #ad-interceptor.consumed { 
-      display: none; 
-    }
+    #ad-interceptor.consumed { display: none; }
     
-    /* Iframe fica bloqueado até o primeiro clique ser consumido */
-    #videoPlayer {
-      pointer-events: none;
-    }
-    #videoPlayer.unlocked {
-      pointer-events: auto;
-    }
+    #videoPlayer { pointer-events: none; }
+    #videoPlayer.unlocked { pointer-events: auto; }
     
     .tab-btn.active {
       color: #00ff88 !important;
       border-bottom: 2px solid #00ff88;
     }
-    
     .tab-btn { border-bottom: 2px solid transparent; }
     
     .episode-card.active-ep {
@@ -105,9 +97,7 @@
           allow="autoplay; encrypted-media; picture-in-picture"
           scrolling="no"
           referrerpolicy="no-referrer-when-downgrade"
-          sandbox="allow-scripts allow-same-origin allow-presentation allow-popups-to-escape-sandbox"
         ></iframe>
-        <!-- Overlay que ENGOLHE o anúncio do primeiro toque -->
         <div id="ad-interceptor"></div>
       </div>
       
