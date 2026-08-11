@@ -22,7 +22,81 @@ let searchTimeout = null;
 let currentSeriesDetails = null;
 
 // ============================================================
-// PROTEÇÃO CONTRA ANÚNCIO - VERSÃO CORRIGIDA
+// BLOQUEIO TOTAL DE REDIRECIONAMENTOS E POPUPS
+// ============================================================
+const originalWindowOpen = window.open;
+const originalLocationAssign = window.location.assign;
+const originalLocationReplace = window.location.replace;
+
+let blockRedirects = false;
+
+function enableRedirectBlock() {
+  blockRedirects = true;
+  
+  // Bloqueia window.open
+  window.open = function() {
+    if (blockRedirects) {
+      console.log('🚫 Popup bloqueado:', arguments);
+      return null;
+    }
+    return originalWindowOpen.apply(window, arguments);
+  };
+  
+  // Bloqueia window.location.assign
+  window.location.assign = function(url) {
+    if (blockRedirects) {
+      console.log('🚫 Redirecionamento bloqueado:', url);
+      return;
+    }
+    return originalLocationAssign.call(window.location, url);
+  };
+  
+  // Bloqueia window.location.replace
+  window.location.replace = function(url) {
+    if (blockRedirects) {
+      console.log('🚫 Redirecionamento bloqueado:', url);
+      return;
+    }
+    return originalLocationReplace.call(window.location, url);
+  };
+  
+  // Bloqueia mudanças diretas em window.location.href
+  Object.defineProperty(window, 'location', {
+    get: function() {
+      return document.location;
+    },
+    set: function(val) {
+      if (blockRedirects) {
+        console.log('🚫 Redirecionamento bloqueado:', val);
+        return;
+      }
+      document.location = val;
+    },
+    configurable: false
+  });
+  
+  // Bloqueia beforeunload (tentativa de redirecionamento)
+  window.addEventListener('beforeunload', (e) => {
+    if (blockRedirects) {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  });
+}
+
+function disableRedirectBlock() {
+  blockRedirects = false;
+  window.open = originalWindowOpen;
+  window.location.assign = originalLocationAssign;
+  window.location.replace = originalLocationReplace;
+}
+
+// Ativa o bloqueio imediatamente
+enableRedirectBlock();
+
+// ============================================================
+// PROTEÇÃO CONTRA ANÚNCIO - VERSÃO AGRESSIVA
 // ============================================================
 let adConsumed = false;
 
@@ -30,39 +104,47 @@ function setupAdProtection() {
   adInterceptor.classList.remove('consumed');
   videoPlayer.classList.remove('unlocked');
   adConsumed = false;
+  blockRedirects = true;
 }
 
 adInterceptor.addEventListener('click', async (e) => {
   e.preventDefault();
   e.stopPropagation();
+  e.stopImmediatePropagation();
   
   if (adConsumed) return;
   adConsumed = true;
   
+  console.log('🛡️ Primeiro clique consumido - anúncio bloqueado');
+  
   // Remove o overlay imediatamente
   adInterceptor.classList.add('consumed');
   
-  // Aguarda um pequeno delay para garantir que o anúncio seja consumido
-  await new Promise(resolve => setTimeout(resolve, 100));
-  
-  // Recarrega o iframe (isso pula o anúncio)
+  // Recarrega o iframe para pular o anúncio
   const currentSrc = videoPlayer.src;
   if (currentSrc && currentSrc !== 'about:blank') {
-    videoPlayer.src = '';
-    await new Promise(resolve => setTimeout(resolve, 50));
+    videoPlayer.src = 'about:blank';
+    await new Promise(resolve => setTimeout(resolve, 100));
     videoPlayer.src = currentSrc;
   }
   
-  // Habilita interação com o iframe após o reload
+  // Aguarda o player carregar antes de habilitar interação
   setTimeout(() => {
     videoPlayer.classList.add('unlocked');
+    
+    // Mantém o bloqueio por mais 5 segundos após o clique
+    setTimeout(() => {
+      blockRedirects = false;
+      console.log('✅ Bloqueio de redirecionamento desativado');
+    }, 5000);
+    
     // Tenta forçar autoplay
     try {
       videoPlayer.contentWindow?.postMessage({ event: 'play' }, '*');
     } catch (err) {
       console.log('Autoplay postMessage failed:', err);
     }
-  }, 300);
+  }, 500);
 });
 
 // Bloqueia qualquer tentativa de interação direta com o iframe
@@ -70,6 +152,7 @@ videoPlayer.addEventListener('click', (e) => {
   if (!adConsumed) {
     e.preventDefault();
     e.stopPropagation();
+    e.stopImmediatePropagation();
   }
 });
 
