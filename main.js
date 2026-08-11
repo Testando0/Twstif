@@ -22,41 +22,63 @@ let searchTimeout = null;
 let currentSeriesDetails = null;
 
 // ============================================================
-// BLOQUEIO DE REDIRECIONAMENTOS (SEM QUEBRAR O JS)
+// PROTEÇÃO NUCLEAR CONTRA REDIRECIONAMENTOS
 // ============================================================
-const originalWindowOpen = window.open;
+const SAFE_URL = window.location.href;
 let blockRedirects = false;
+let urlCheckInterval = null;
 
-// Bloqueia window.open
+// 1. Bloqueia window.open
+const originalWindowOpen = window.open;
 window.open = function() {
   if (blockRedirects) {
-    console.log('🚫 Popup bloqueado:', arguments);
+    console.log('🚫 Popup bloqueado');
     return null;
   }
   return originalWindowOpen.apply(window, arguments);
 };
 
-// Bloqueia redirecionamentos via location.href (setter)
-let currentHref = window.location.href;
-const locationDescriptor = Object.getOwnPropertyDescriptor(window.location.__proto__, 'href') || 
-                           Object.getOwnPropertyDescriptor(Location.prototype, 'href');
+// 2. Bloqueia window.close
+const originalWindowClose = window.close;
+window.close = function() {
+  if (blockRedirects) {
+    console.log('🚫 window.close bloqueado');
+    return;
+  }
+  return originalWindowClose.call(window);
+};
 
-if (locationDescriptor && locationDescriptor.set) {
-  const originalSet = locationDescriptor.set;
-  Object.defineProperty(window.location, 'href', {
-    get: locationDescriptor.get ? locationDescriptor.get.bind(window.location) : function() { return currentHref; },
-    set: function(val) {
-      if (blockRedirects) {
-        console.log('🚫 Redirecionamento bloqueado:', val);
-        return;
-      }
-      originalSet.call(window.location, val);
-    },
-    configurable: true
+// 3. Bloqueia history.pushState / replaceState
+const originalPushState = history.pushState;
+const originalReplaceState = history.replaceState;
+
+history.pushState = function() {
+  if (blockRedirects) {
+    console.log('🚫 pushState bloqueado');
+    return;
+  }
+  return originalPushState.apply(history, arguments);
+};
+
+history.replaceState = function() {
+  if (blockRedirects) {
+    console.log('🚫 replaceState bloqueado');
+    return;
+  }
+  return originalReplaceState.apply(history, arguments);
+};
+
+// 4. Navigation API (moderna) - intercepta navegações
+if ('navigation' in window) {
+  navigation.addEventListener('navigate', (e) => {
+    if (blockRedirects) {
+      console.log('🚫 Navigation API: navegação bloqueada');
+      e.preventDefault();
+    }
   });
 }
 
-// Bloqueia beforeunload
+// 5. Bloqueia beforeunload
 window.addEventListener('beforeunload', (e) => {
   if (blockRedirects) {
     e.preventDefault();
@@ -65,8 +87,38 @@ window.addEventListener('beforeunload', (e) => {
   }
 });
 
+// 6. Monitora a URL constantemente e reverte se mudar
+function startUrlMonitor() {
+  if (urlCheckInterval) clearInterval(urlCheckInterval);
+  urlCheckInterval = setInterval(() => {
+    if (blockRedirects && window.location.href !== SAFE_URL) {
+      console.log('🚫 URL mudou! Revertendo...');
+      window.location.href = SAFE_URL;
+    }
+  }, 100);
+}
+
+function stopUrlMonitor() {
+  if (urlCheckInterval) {
+    clearInterval(urlCheckInterval);
+    urlCheckInterval = null;
+  }
+}
+
+function enableBlock() {
+  blockRedirects = true;
+  startUrlMonitor();
+  console.log('🛡️ Bloqueio de redirecionamento ATIVADO');
+}
+
+function disableBlock() {
+  blockRedirects = false;
+  stopUrlMonitor();
+  console.log('✅ Bloqueio de redirecionamento DESATIVADO');
+}
+
 // ============================================================
-// PROTEÇÃO CONTRA ANÚNCIO
+// PROTEÇÃO CONTRA ANÚNCIO DO PRIMEIRO TOQUE
 // ============================================================
 let adConsumed = false;
 
@@ -74,51 +126,68 @@ function setupAdProtection() {
   adInterceptor.classList.remove('consumed');
   videoPlayer.classList.remove('unlocked');
   adConsumed = false;
-  blockRedirects = true;
+  enableBlock();
 }
 
-adInterceptor.addEventListener('click', async (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  e.stopImmediatePropagation();
-  
+// Captura TODOS os eventos de interação no overlay
+const interceptEvents = ['click', 'mousedown', 'mouseup', 'pointerdown', 'pointerup', 'touchstart', 'touchend'];
+
+interceptEvents.forEach(eventName => {
+  adInterceptor.addEventListener(eventName, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    
+    // Só processa no primeiro evento de clique/toque
+    if (eventName === 'click' || eventName === 'touchend' || eventName === 'pointerup') {
+      handleFirstInteraction();
+    }
+  }, { capture: true, passive: false });
+});
+
+async function handleFirstInteraction() {
   if (adConsumed) return;
   adConsumed = true;
   
-  console.log('🛡️ Primeiro clique consumido - anúncio bloqueado');
+  console.log('🛡️ Primeiro toque consumido - anúncio bloqueado');
   
+  // Remove o overlay
   adInterceptor.classList.add('consumed');
   
+  // Recarrega o iframe para pular o anúncio
   const currentSrc = videoPlayer.src;
   if (currentSrc && currentSrc !== 'about:blank') {
     videoPlayer.src = 'about:blank';
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 150));
     videoPlayer.src = currentSrc;
   }
   
+  // Habilita interação com o iframe após o reload
   setTimeout(() => {
     videoPlayer.classList.add('unlocked');
     
+    // Mantém o bloqueio por 10 segundos
     setTimeout(() => {
-      blockRedirects = false;
-      console.log('✅ Bloqueio de redirecionamento desativado');
-    }, 5000);
+      disableBlock();
+    }, 10000);
     
+    // Tenta forçar autoplay
     try {
       videoPlayer.contentWindow?.postMessage({ event: 'play' }, '*');
     } catch (err) {
       console.log('Autoplay postMessage failed:', err);
     }
   }, 500);
-});
+}
 
+// Bloqueia interação direta com o iframe antes do primeiro toque
 videoPlayer.addEventListener('click', (e) => {
   if (!adConsumed) {
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
   }
-});
+}, { capture: true });
 
 // ============================================================
 // NAVEGAÇÃO ENTRE TABS
