@@ -25,15 +25,26 @@
     body { background-color: #0a0a0f; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
     .neon-border:focus { box-shadow: 0 0 10px rgba(0, 255, 136, 0.4); }
     
-    /* Ad blocker overlay - absorve o anúncio do primeiro toque */
+    /* Overlay de proteção - ABSORVE o primeiro clique */
     #ad-interceptor {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
-      z-index: 10;
+      z-index: 9999;
       background: transparent;
       cursor: pointer;
+      pointer-events: auto;
     }
-    #ad-interceptor.consumed { display: none; }
+    #ad-interceptor.consumed { 
+      display: none; 
+    }
+    
+    /* Iframe fica bloqueado até o primeiro clique ser consumido */
+    #videoPlayer {
+      pointer-events: none;
+    }
+    #videoPlayer.unlocked {
+      pointer-events: auto;
+    }
     
     .tab-btn.active {
       color: #00ff88 !important;
@@ -42,13 +53,11 @@
     
     .tab-btn { border-bottom: 2px solid transparent; }
     
-    /* Episode selector */
     .episode-card.active-ep {
       border-color: #00ff88 !important;
       background-color: rgba(0, 255, 136, 0.1);
     }
     
-    /* Hide scrollbar for season slider */
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
@@ -61,7 +70,6 @@
       </h1>
       
       <div class="flex gap-2 items-center w-full md:w-auto">
-        <!-- Tabs: Filmes / Séries -->
         <button id="tabMovies" class="tab-btn active px-4 py-2 text-sm font-medium text-gray-400 hover:text-white transition">
           🎬 Filmes
         </button>
@@ -83,7 +91,6 @@
 
   <main class="flex-1 max-w-7xl w-full mx-auto p-4 space-y-8">
     
-    <!-- Player -->
     <section class="space-y-3">
       <h2 id="playerTitle" class="text-xl font-semibold text-cyber-accent flex items-center gap-2">
         <span>▶</span> Selecione um conteúdo para assistir
@@ -99,11 +106,10 @@
           scrolling="no"
           referrerpolicy="no-referrer-when-downgrade"
         ></iframe>
-        <!-- Overlay que engole o anúncio do primeiro toque -->
+        <!-- Overlay que ENGOLHE o anúncio do primeiro toque -->
         <div id="ad-interceptor"></div>
       </div>
       
-      <!-- Seletor de Temporadas/Episódios (só aparece para séries) -->
       <div id="seriesControls" class="hidden space-y-3">
         <div>
           <h3 class="text-sm text-gray-400 mb-2">Temporada:</h3>
@@ -116,7 +122,6 @@
       </div>
     </section>
 
-    <!-- Catálogo -->
     <section>
       <h3 id="resultsHeading" class="text-lg font-medium text-gray-400 mb-4">Populares no TMDB</h3>
       <div id="resultsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4"></div>
