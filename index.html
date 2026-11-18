@@ -13,7 +13,7 @@
             cyber: {
               bg: '#0a0a0f',
               card: '#12121a',
-              accent: '#00ff88',
+              accent: '#ff1f3d',
               border: '#1f1f2e'
             }
           }
@@ -23,30 +23,17 @@
   </script>
   <style>
     body { background-color: #0a0a0f; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
-    .neon-border:focus { box-shadow: 0 0 10px rgba(0, 255, 136, 0.4); }
-    
-    #ad-interceptor {
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      z-index: 9999;
-      background: transparent;
-      cursor: pointer;
-      pointer-events: auto;
-    }
-    #ad-interceptor.consumed { display: none; }
-    
-    #videoPlayer { pointer-events: none; }
-    #videoPlayer.unlocked { pointer-events: auto; }
+    .neon-border:focus { box-shadow: 0 0 10px rgba(255, 31, 61, 0.4); }
     
     .tab-btn.active {
-      color: #00ff88 !important;
-      border-bottom: 2px solid #00ff88;
+      color: #ff1f3d !important;
+      border-bottom: 2px solid #ff1f3d;
     }
     .tab-btn { border-bottom: 2px solid transparent; }
     
     .episode-card.active-ep {
-      border-color: #00ff88 !important;
-      background-color: rgba(0, 255, 136, 0.1);
+      border-color: #ff1f3d !important;
+      background-color: rgba(255, 31, 61, 0.1);
     }
     
     .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -88,17 +75,15 @@
       </h2>
       
       <div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden border border-cyber-border shadow-2xl">
-        <iframe 
-          id="videoPlayer" 
-          src="about:blank" 
+        <iframe
+          id="videoPlayer"
+          src="about:blank"
           class="w-full h-full border-none"
-          allowfullscreen 
-          allow="autoplay; encrypted-media; picture-in-picture"
-          scrolling="no"
-          referrerpolicy="no-referrer"
-          sandbox="allow-scripts allow-same-origin allow-presentation"
+          frameborder="0"
+          allowfullscreen
+          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
         ></iframe>
-        <div id="ad-interceptor"></div>
       </div>
       
       <div id="seriesControls" class="hidden space-y-3">
