@@ -2,8 +2,14 @@ const TMDB_API_KEY = '8265bd1679663a7ea12ac168da84d2e8';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 
-const PLAYER_MOVIE = (tmdbId) => `https://mgeb.top/embed/${tmdbId}`;
-const PLAYER_SERIES = (tmdbId, season, episode) => `https://mgeb.top/embed/${tmdbId}/${season}/${episode}`;
+// O myembed.biz usa o ID do IMDb (tt...), que buscamos no TMDB via external_ids
+const PLAYER_BASE = 'https://myembed.biz';
+const PLAYER_MOVIE = (imdbId) => `${PLAYER_BASE}/filme/${imdbId}`;
+const PLAYER_SERIES = (imdbId, season, episode) => `${PLAYER_BASE}/serie/${imdbId}/${season}/${episode}`;
+
+// Sandbox: sem allow-popups / allow-top-navigation, o player não consegue
+// abrir pop-ups nem redirecionar a página principal.
+const PLAYER_SANDBOX = 'allow-scripts allow-same-origin allow-forms allow-presentation';
 
 const searchInput = document.getElementById('searchInput');
 const resultsGrid = document.getElementById('resultsGrid');
@@ -15,179 +21,11 @@ const tabSeries = document.getElementById('tabSeries');
 const seriesControls = document.getElementById('seriesControls');
 const seasonsSlider = document.getElementById('seasonsSlider');
 const episodesGrid = document.getElementById('episodesGrid');
-const adInterceptor = document.getElementById('ad-interceptor');
 
 let currentTab = 'movies';
 let searchTimeout = null;
 let currentSeriesDetails = null;
-
-// ============================================================
-// PROTEÇÃO NUCLEAR CONTRA REDIRECIONAMENTOS
-// ============================================================
-const SAFE_URL = window.location.href;
-let blockRedirects = false;
-let urlCheckInterval = null;
-
-// 1. Bloqueia window.open
-const originalWindowOpen = window.open;
-window.open = function() {
-  if (blockRedirects) {
-    console.log('🚫 Popup bloqueado');
-    return null;
-  }
-  return originalWindowOpen.apply(window, arguments);
-};
-
-// 2. Bloqueia window.close
-const originalWindowClose = window.close;
-window.close = function() {
-  if (blockRedirects) {
-    console.log('🚫 window.close bloqueado');
-    return;
-  }
-  return originalWindowClose.call(window);
-};
-
-// 3. Bloqueia history.pushState / replaceState
-const originalPushState = history.pushState;
-const originalReplaceState = history.replaceState;
-
-history.pushState = function() {
-  if (blockRedirects) {
-    console.log('🚫 pushState bloqueado');
-    return;
-  }
-  return originalPushState.apply(history, arguments);
-};
-
-history.replaceState = function() {
-  if (blockRedirects) {
-    console.log('🚫 replaceState bloqueado');
-    return;
-  }
-  return originalReplaceState.apply(history, arguments);
-};
-
-// 4. Navigation API (moderna) - intercepta navegações
-if ('navigation' in window) {
-  navigation.addEventListener('navigate', (e) => {
-    if (blockRedirects) {
-      console.log('🚫 Navigation API: navegação bloqueada');
-      e.preventDefault();
-    }
-  });
-}
-
-// 5. Bloqueia beforeunload
-window.addEventListener('beforeunload', (e) => {
-  if (blockRedirects) {
-    e.preventDefault();
-    e.returnValue = '';
-    return '';
-  }
-});
-
-// 6. Monitora a URL constantemente e reverte se mudar
-function startUrlMonitor() {
-  if (urlCheckInterval) clearInterval(urlCheckInterval);
-  urlCheckInterval = setInterval(() => {
-    if (blockRedirects && window.location.href !== SAFE_URL) {
-      console.log('🚫 URL mudou! Revertendo...');
-      window.location.href = SAFE_URL;
-    }
-  }, 100);
-}
-
-function stopUrlMonitor() {
-  if (urlCheckInterval) {
-    clearInterval(urlCheckInterval);
-    urlCheckInterval = null;
-  }
-}
-
-function enableBlock() {
-  blockRedirects = true;
-  startUrlMonitor();
-  console.log('🛡️ Bloqueio de redirecionamento ATIVADO');
-}
-
-function disableBlock() {
-  blockRedirects = false;
-  stopUrlMonitor();
-  console.log('✅ Bloqueio de redirecionamento DESATIVADO');
-}
-
-// ============================================================
-// PROTEÇÃO CONTRA ANÚNCIO DO PRIMEIRO TOQUE
-// ============================================================
-let adConsumed = false;
-
-function setupAdProtection() {
-  adInterceptor.classList.remove('consumed');
-  videoPlayer.classList.remove('unlocked');
-  adConsumed = false;
-  enableBlock();
-}
-
-// Captura TODOS os eventos de interação no overlay
-const interceptEvents = ['click', 'mousedown', 'mouseup', 'pointerdown', 'pointerup', 'touchstart', 'touchend'];
-
-interceptEvents.forEach(eventName => {
-  adInterceptor.addEventListener(eventName, (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-    
-    // Só processa no primeiro evento de clique/toque
-    if (eventName === 'click' || eventName === 'touchend' || eventName === 'pointerup') {
-      handleFirstInteraction();
-    }
-  }, { capture: true, passive: false });
-});
-
-async function handleFirstInteraction() {
-  if (adConsumed) return;
-  adConsumed = true;
-  
-  console.log('🛡️ Primeiro toque consumido - anúncio bloqueado');
-  
-  // Remove o overlay
-  adInterceptor.classList.add('consumed');
-  
-  // Recarrega o iframe para pular o anúncio
-  const currentSrc = videoPlayer.src;
-  if (currentSrc && currentSrc !== 'about:blank') {
-    videoPlayer.src = 'about:blank';
-    await new Promise(resolve => setTimeout(resolve, 150));
-    videoPlayer.src = currentSrc;
-  }
-  
-  // Habilita interação com o iframe após o reload
-  setTimeout(() => {
-    videoPlayer.classList.add('unlocked');
-    
-    // Mantém o bloqueio por 10 segundos
-    setTimeout(() => {
-      disableBlock();
-    }, 10000);
-    
-    // Tenta forçar autoplay
-    try {
-      videoPlayer.contentWindow?.postMessage({ event: 'play' }, '*');
-    } catch (err) {
-      console.log('Autoplay postMessage failed:', err);
-    }
-  }, 500);
-}
-
-// Bloqueia interação direta com o iframe antes do primeiro toque
-videoPlayer.addEventListener('click', (e) => {
-  if (!adConsumed) {
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-  }
-}, { capture: true });
+let currentSeriesImdbId = null;
 
 // ============================================================
 // NAVEGAÇÃO ENTRE TABS
@@ -204,27 +42,54 @@ function switchTab(tab) {
     : 'Buscar séries no TMDB...';
   seriesControls.classList.add('hidden');
   currentSeriesDetails = null;
+  currentSeriesImdbId = null;
   loadCatalog();
 }
 
 // ============================================================
 // CARREGA O PLAYER
 // ============================================================
-function loadPlayer(url, title, isSeries = false) {
-  playerTitle.innerHTML = `<span>▶</span> Assistindo: ${title}`;
+function loadPlayer(url, title) {
+  playerTitle.innerHTML = `<span>▶</span> Assistindo: ${escapeHtml(title)}`;
+
+  // Garante o sandbox antes de definir o src
+  videoPlayer.setAttribute('sandbox', PLAYER_SANDBOX);
   videoPlayer.src = url;
-  setupAdProtection();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Busca o ID do IMDb no TMDB (type: 'movie' | 'tv')
+async function getImdbId(type, tmdbId) {
+  try {
+    const res = await fetch(`${TMDB_BASE_URL}/${type}/${tmdbId}/external_ids?api_key=${TMDB_API_KEY}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.imdb_id || null;
+  } catch (err) {
+    console.error('Erro ao buscar IMDb ID:', err);
+    return null;
+  }
+}
+
+function showPlayerError(title) {
+  playerTitle.innerHTML = `<span>⚠</span> Sem ID do IMDb para: ${escapeHtml(title)}`;
+}
+
+function escapeHtml(str = '') {
+  return String(str).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
 }
 
 // ============================================================
 // SÉRIES - TEMPORADAS E EPISÓDIOS
 // ============================================================
-async function loadSeriesDetails(seriesId) {
+async function loadSeriesDetails(seriesId, imdbId) {
   try {
     const res = await fetch(`${TMDB_BASE_URL}/tv/${seriesId}?api_key=${TMDB_API_KEY}&language=pt-BR`);
     const data = await res.json();
     currentSeriesDetails = data;
+    currentSeriesImdbId = imdbId;
     seriesControls.classList.remove('hidden');
     
     seasonsSlider.innerHTML = '';
@@ -267,14 +132,14 @@ async function loadEpisodes(seasonNumber) {
     data.episodes.forEach(ep => {
       const btn = document.createElement('button');
       btn.className = 'episode-card px-2 py-3 rounded-lg bg-cyber-bg border border-cyber-border text-xs text-gray-300 hover:border-cyber-accent transition text-center';
-      btn.innerHTML = `<div class="font-bold">Ep ${ep.episode_number}</div><div class="truncate text-[10px] mt-1" title="${ep.name || ''}">${ep.name || ''}</div>`;
+      btn.innerHTML = `<div class="font-bold">Ep ${ep.episode_number}</div><div class="truncate text-[10px] mt-1" title="${escapeHtml(ep.name)}">${escapeHtml(ep.name)}</div>`;
       
       btn.addEventListener('click', () => {
         document.querySelectorAll('.episode-card').forEach(c => c.classList.remove('active-ep'));
         btn.classList.add('active-ep');
         
-        const url = PLAYER_SERIES(currentSeriesDetails.id, seasonNumber, ep.episode_number);
-        loadPlayer(url, `${currentSeriesDetails.name} - S${seasonNumber}E${ep.episode_number}`, true);
+        const url = PLAYER_SERIES(currentSeriesImdbId, seasonNumber, ep.episode_number);
+        loadPlayer(url, `${currentSeriesDetails.name} - S${seasonNumber}E${ep.episode_number}`);
       });
       
       episodesGrid.appendChild(btn);
@@ -336,28 +201,36 @@ function renderCatalog(items) {
       <div class="aspect-[2/3] w-full overflow-hidden bg-gray-900">
         <img 
           src="${IMAGE_BASE_URL}${item.poster_path}" 
-          alt="${title}" 
+          alt="${escapeHtml(title)}" 
           class="w-full h-full object-cover group-hover:scale-105 transition duration-300"
           loading="lazy"
         />
       </div>
       <div class="p-3 flex-1 flex flex-col justify-between">
-        <h4 class="text-sm font-semibold text-white truncate">${title}</h4>
+        <h4 class="text-sm font-semibold text-white truncate">${escapeHtml(title)}</h4>
         <span class="text-xs text-gray-400 mt-1">${year}</span>
       </div>
     `;
     
-    card.addEventListener('click', () => {
-      if (currentTab === 'movies') {
-        const url = PLAYER_MOVIE(tmdbId);
-        loadPlayer(url, title);
+    card.addEventListener('click', async () => {
+      const type = currentTab === 'movies' ? 'movie' : 'tv';
+      playerTitle.innerHTML = `<span>⏳</span> Carregando: ${escapeHtml(title)}`;
+
+      const imdbId = await getImdbId(type, tmdbId);
+      if (!imdbId) {
+        showPlayerError(title);
+        return;
+      }
+
+      if (type === 'movie') {
+        loadPlayer(PLAYER_MOVIE(imdbId), title);
       } else {
-        const url = PLAYER_SERIES(tmdbId, 1, 1);
-        loadPlayer(url, `${title} - S1E1`, true);
-        loadSeriesDetails(tmdbId);
+        currentSeriesImdbId = imdbId;
+        loadPlayer(PLAYER_SERIES(imdbId, 1, 1), `${title} - S1E1`);
+        loadSeriesDetails(tmdbId, imdbId);
       }
     });
-    
+
     resultsGrid.appendChild(card);
   });
 }
